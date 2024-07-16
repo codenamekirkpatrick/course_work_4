@@ -1,36 +1,38 @@
 import requests
-
-from src.get_vacancies import GetVacanciesAPI
 from src.vacancy import Vacancy
+from src.abstracted_classes import GetVacancies
 
 
-class HeadHunterAPI(GetVacanciesAPI):
-    """ Класс для подключения к hh.ru """
+class HeadHunterAPI(GetVacancies):
+    """Класс для подключения к сайту HH.ru"""
+    def get_vacancies(self, name_job, pages):
+        hh_list = []
 
-    def __init__(self, keyword, per_page):
-        self.url = "https://api.hh.ru/vacancies"
-        self.headers = {"User-Agent": "HH-User-Agent"}
-        self.params = {"text": keyword, "per_page": per_page}
-        self.vacancies = []
+        for i in range(pages):
+            params = {
+                'text': name_job,
+                'per_page': '5',
+                'page': i
+            }
 
-    def get_response(self, keyword, per_page):
-        return requests.get(self.url, params=self.params)
+            response = requests.get('https://api.hh.ru/vacancies', params=params)
+            response_json = response.json()
 
-    def get_vacancies(self, keyword, per_page):
-        return self.get_response(keyword, per_page).json()["items"]
+            for j in response_json['items']:
+                hh_title = j['name']
+                if not (j['area'] is None):
+                    hh_town = j['area']['name']
+                else:
+                    hh_town = None
+                if not ((j['salary'] is None) or (j['salary']['from'] is None)):
+                    salary_from = j['salary']['from']
+                    salary_to = j['salary']['to']
+                else:
+                    salary_from = 0
+                    salary_to = 0
+                hh_employment = j['employment']['name']
+                hh_url = j['alternate_url']
 
-    def get_filter_vacancies(self, keyword, per_page):
-        filter_vacancies = []
-        vacancies = self.get_vacancies(keyword, per_page)
-        for vacancy in vacancies:
-            # filter_vacancies.append({
-            #     "name": vacancy.get("name"),
-            #     "alternate_url": vacancy.get("alternate_url"),
-            #     "salary_from": vacancy.get("salary").get("from") if vacancy.get("salary") else "Нет информации",
-            #     "salary_to": vacancy.get("salary").get("to") if vacancy.get("salary") else "Нет информации",
-            #     "area_name": vacancy.get("area").get("name"),
-            #     "requirement": vacancy.get("snippet").get("requirement"),
-            #     "responsibility": vacancy.get("snippet").get("responsibility")
-            # })
-            filter_vacancies.append(Vacancy.vacancies_lst(vacancy))
-        return filter_vacancies
+                hh_vacancy = Vacancy(hh_title, hh_town, salary_from, salary_to, hh_employment, hh_url)
+                hh_list.append(hh_vacancy)
+        return hh_list
